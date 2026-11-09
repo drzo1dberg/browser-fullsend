@@ -8,7 +8,7 @@ Status: proof of concept. Checked by hand in Helium on 2026-11-09: the test
 page button, double click on the test video and double click on a YouTube
 watch page all keep fullscreen inside the window. Open: whether YouTube's
 own fullscreen button still works, see Known gaps. The top layer change
-(Popover API) is untested in a browser so far.
+(Popover API) and the page-level handling are untested in a browser so far.
 
 ## How it works
 
@@ -26,7 +26,14 @@ call them:
 - `document.fullscreenElement`, `fullscreenEnabled` and the `webkit` variants
   report the faked state, and `fullscreenchange` fires, so players update
   their own UI as if fullscreen were real.
+- Some pages request fullscreen for `<html>` itself and expect the browser
+  to fill the screen with the page. YouTube's watch page does this. Lifting
+  `<html>` would blank the page, so the extension reports `<html>` as the
+  fullscreen element but visually lifts the box around the largest video,
+  the outermost ancestor whose rectangle still matches the video's.
 - `screen.width` and `screen.height` return the window size.
+- Every enter and exit logs one `[fullsend]` line to the console with the
+  requested element and the lifted one.
 - Escape leaves the faked fullscreen, as it does for the real one.
 - Inside an iframe the script asks its parent frame to do the same with the
   iframe element, so embedded players work too.
@@ -63,8 +70,10 @@ no background worker, no permissions beyond the content script itself.
    Double click the video. Expected: same as step 3, no OS change, no flash.
    A flash means the engine still toggled real fullscreen on double click and
    the safety net took over.
-6. YouTube watch page: the player's fullscreen button and the `f` key. Both
-   go through the JavaScript API, no flash expected.
+6. YouTube watch page: double click, the player's fullscreen button and the
+   `f` key, then Escape. All go through the JavaScript API, no flash
+   expected. With F12 open, the Console tab shows one `[fullsend]` line per
+   enter and exit, for example `enter html lift div#movie_player.html5-video-player`.
 
 Syntax checks without a browser:
 
@@ -75,6 +84,9 @@ node -e 'JSON.parse(require("fs").readFileSync("manifest.json","utf8"))'
 
 ## Known gaps
 
+- When a page requests fullscreen for `<html>` and no video box can be
+  matched, for example a letterboxed player, only the state is faked and
+  the layout is left to the page.
 - On YouTube only double click was confirmed. The player's own fullscreen
   button is unconfirmed.
 - Anything that enters real fullscreen outside the JavaScript API is caught

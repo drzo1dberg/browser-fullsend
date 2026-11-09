@@ -8,7 +8,8 @@
 
   const CLASS = '__fullsend';
   const ROOT = '__fullsend-root';
-  let fakeEl = null;
+  let fakeEl = null;   // what the page asked for, reported back as fullscreenElement
+  let liftedEl = null; // what is visually filling the window, usually the same
 
   // Real API, saved before the overrides below. Needed for the safety net.
   const DocProto = typeof Document !== 'undefined' ? Document.prototype : null;
@@ -54,13 +55,50 @@
     window.dispatchEvent(new Event('resize'));
   }
 
+  function describe(el) {
+    if (!el) return 'none';
+    const cls = el.classList && el.classList.length ? '.' + el.classList[0] : '';
+    return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + cls;
+  }
+
+  function isPage(el) {
+    return el === document.documentElement || el === document.body;
+  }
+
+  // Pages like YouTube request fullscreen for <html> and rely on the browser
+  // to fill the screen with it. Lifting <html> would blank the page, so find
+  // the box around the largest video instead: the outermost ancestor whose
+  // rect still matches the video's rect.
+  function pickPlayer() {
+    if (!document.querySelectorAll) return null;
+    let video = null;
+    let area = 0;
+    for (const v of document.querySelectorAll('video')) {
+      const r = v.getBoundingClientRect();
+      if (r.width * r.height > area) { area = r.width * r.height; video = v; }
+    }
+    if (!video) return null;
+    const vr = video.getBoundingClientRect();
+    const same = (r) => Math.abs(r.width - vr.width) <= 2 && Math.abs(r.height - vr.height) <= 2
+      && Math.abs(r.left - vr.left) <= 2 && Math.abs(r.top - vr.top) <= 2;
+    let pick = video;
+    for (let a = video.parentElement; a && !isPage(a); a = a.parentElement) {
+      if (same(a.getBoundingClientRect())) pick = a;
+    }
+    return pick;
+  }
+
   function enter(el) {
     if (fakeEl === el) return Promise.resolve();
-    if (fakeEl) { drop(fakeEl); fakeEl.classList.remove(CLASS); }
+    if (liftedEl) { drop(liftedEl); liftedEl.classList.remove(CLASS); }
     fakeEl = el;
-    el.classList.add(CLASS);
+    liftedEl = isPage(el) ? pickPlayer() : el;
+    if (liftedEl) {
+      liftedEl.classList.add(CLASS);
+      lift(liftedEl);
+    }
     document.documentElement.classList.add(ROOT);
-    lift(el);
+    console.info('[fullsend] enter', describe(el), 'lift', describe(liftedEl));
     fire();
     nudge();
     tellParent('enter');
@@ -69,10 +107,11 @@
 
   function exit() {
     if (!fakeEl) return Promise.resolve();
-    drop(fakeEl);
-    fakeEl.classList.remove(CLASS);
+    if (liftedEl) { drop(liftedEl); liftedEl.classList.remove(CLASS); }
     document.documentElement.classList.remove(ROOT);
+    console.info('[fullsend] exit', describe(fakeEl), 'drop', describe(liftedEl));
     fakeEl = null;
+    liftedEl = null;
     fire();
     nudge();
     tellParent('exit');
@@ -91,6 +130,7 @@
   define(document, 'fullscreenElement', () => fakeEl);
   define(document, 'webkitFullscreenElement', () => fakeEl);
   define(document, 'webkitCurrentFullScreenElement', () => fakeEl);
+  define(document, 'fullscreen', () => fakeEl !== null);
   define(document, 'fullscreenEnabled', () => true);
   define(document, 'webkitFullscreenEnabled', () => true);
   define(document, 'webkitIsFullScreen', () => fakeEl !== null);
@@ -122,6 +162,7 @@
   document.addEventListener('fullscreenchange', () => {
     const real = realGet.call(document);
     if (!real || real === fakeEl) return;
+    console.info('[fullsend] real fullscreen caught on', describe(real));
     if (realExit) realExit.call(document);
     enter(real);
   }, true);

@@ -32,7 +32,8 @@ no background worker, no permissions beyond the content script itself.
 1. Open `chrome://extensions`.
 2. Enable Developer mode, top right.
 3. Load unpacked, pick this directory. From Windows with the repo in WSL
-   the path looks like `\\wsl$\Ubuntu\home\<user>\github-repos\drzo1dberg\browser-fullsend`.
+   the path looks like `\\wsl$\<distro>\home\<user>\github-repos\drzo1dberg\browser-fullsend`,
+   where `<distro>` is the output of `echo $WSL_DISTRO_NAME` inside WSL.
 
 ## Verify
 

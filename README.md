@@ -7,7 +7,8 @@ the OS window itself stays where it is and keeps its size.
 Status: proof of concept. Checked by hand in Helium on 2026-11-09: the test
 page button, double click on the test video and double click on a YouTube
 watch page all keep fullscreen inside the window. Open: whether YouTube's
-own fullscreen button still works, see Known gaps.
+own fullscreen button still works, see Known gaps. The top layer change
+(Popover API) is untested in a browser so far.
 
 ## How it works
 
@@ -18,6 +19,10 @@ call them:
 
 - `Element.prototype.requestFullscreen` and the `webkit` aliases add a CSS
   class to the element. `style.css` pins that element to the viewport.
+- The element is lifted into the top layer with the Popover API, `popover`
+  set to `manual` plus `showPopover()`. That is the layer real fullscreen
+  uses, so it escapes every stacking context and transformed ancestor on the
+  page. Without the API the z-index styling in `style.css` is the fallback.
 - `document.fullscreenElement`, `fullscreenEnabled` and the `webkit` variants
   report the faked state, and `fullscreenchange` fires, so players update
   their own UI as if fullscreen were real.
@@ -71,8 +76,7 @@ node -e 'JSON.parse(require("fs").readFileSync("manifest.json","utf8"))'
 ## Known gaps
 
 - On YouTube only double click was confirmed. The player's own fullscreen
-  button is unconfirmed, it may be blocked by the double click handler's
-  `stopPropagation` or by a YouTube side check.
+  button is unconfirmed.
 - Anything that enters real fullscreen outside the JavaScript API is caught
   only after the OS window changed, which shows as a short flash.
 - Sites that style their player with the `:fullscreen` pseudo class only get

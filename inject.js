@@ -30,23 +30,51 @@
     if (window !== window.parent) window.parent.postMessage({ __fullsend: action }, '*');
   }
 
+  // Top layer via the Popover API: escapes every stacking context and every
+  // transformed ancestor, the same layer real fullscreen uses. Falls back to
+  // the z-index styling in style.css when the API is missing or throws.
+  function lift(el) {
+    if (typeof el.showPopover !== 'function') return;
+    try {
+      el.setAttribute('popover', 'manual');
+      el.showPopover();
+    } catch (err) {
+      el.removeAttribute('popover');
+    }
+  }
+
+  function drop(el) {
+    try {
+      if (el.matches(':popover-open')) el.hidePopover();
+    } catch (err) { /* not open or unsupported */ }
+    el.removeAttribute('popover');
+  }
+
+  function nudge() {
+    window.dispatchEvent(new Event('resize'));
+  }
+
   function enter(el) {
     if (fakeEl === el) return Promise.resolve();
-    if (fakeEl) fakeEl.classList.remove(CLASS);
+    if (fakeEl) { drop(fakeEl); fakeEl.classList.remove(CLASS); }
     fakeEl = el;
     el.classList.add(CLASS);
     document.documentElement.classList.add(ROOT);
+    lift(el);
     fire();
+    nudge();
     tellParent('enter');
     return Promise.resolve();
   }
 
   function exit() {
     if (!fakeEl) return Promise.resolve();
+    drop(fakeEl);
     fakeEl.classList.remove(CLASS);
     document.documentElement.classList.remove(ROOT);
     fakeEl = null;
     fire();
+    nudge();
     tellParent('exit');
     return Promise.resolve();
   }
@@ -107,12 +135,17 @@
   function tameAll(root) {
     if (root.querySelectorAll) root.querySelectorAll('video, audio').forEach(tame);
   }
+  //    The page's own double click handler runs first. Only when it changed
+  //    nothing through the hooked API does the video itself get toggled.
   document.addEventListener('dblclick', (e) => {
     const el = e.target;
     if (!(el instanceof HTMLMediaElement) || el.tagName !== 'VIDEO') return;
     e.preventDefault();
-    e.stopPropagation();
-    fakeEl === el ? exit() : enter(el);
+    const before = fakeEl;
+    setTimeout(() => {
+      if (fakeEl !== before) return;
+      fakeEl === el ? exit() : enter(el);
+    }, 0);
   }, true);
   if (typeof MutationObserver !== 'undefined') {
     new MutationObserver((muts) => {

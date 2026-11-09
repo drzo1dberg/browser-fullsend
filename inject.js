@@ -10,6 +10,12 @@
   const ROOT = '__fullsend-root';
   let fakeEl = null;
 
+  // Real API, saved before the overrides below. Needed for the safety net.
+  const DocProto = typeof Document !== 'undefined' ? Document.prototype : null;
+  const realDesc = DocProto && Object.getOwnPropertyDescriptor(DocProto, 'fullscreenElement');
+  const realGet = realDesc ? realDesc.get : () => null;
+  const realExit = DocProto && DocProto.exitFullscreen;
+
   function define(obj, key, get) {
     Object.defineProperty(obj, key, { get, configurable: true });
   }
@@ -81,4 +87,43 @@
     if (!frame) return;
     if (action === 'enter') enter(frame); else exit();
   });
+
+  // 6. Safety net: something bypassed the JS API (native media controls call
+  //    Blink directly). The OS window is already fullscreen when this fires,
+  //    so leave real fullscreen at once and fake it instead. One visible flash.
+  document.addEventListener('fullscreenchange', () => {
+    const real = realGet.call(document);
+    if (!real || real === fakeEl) return;
+    if (realExit) realExit.call(document);
+    enter(real);
+  }, true);
+
+  // 7. Native controls: hide their fullscreen button so the C++ path is never
+  //    clicked, and offer double click as the replacement entry point.
+  function tame(el) {
+    if (!el.controlsList || el.controlsList.contains('nofullscreen')) return;
+    el.controlsList.add('nofullscreen');
+  }
+  function tameAll(root) {
+    if (root.querySelectorAll) root.querySelectorAll('video, audio').forEach(tame);
+  }
+  document.addEventListener('dblclick', (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLMediaElement) || el.tagName !== 'VIDEO') return;
+    e.preventDefault();
+    e.stopPropagation();
+    fakeEl === el ? exit() : enter(el);
+  }, true);
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (n.tagName === 'VIDEO' || n.tagName === 'AUDIO') tame(n);
+          tameAll(n);
+        }
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', () => tameAll(document));
+  }
 })();

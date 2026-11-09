@@ -23,6 +23,13 @@ call them:
 - Escape leaves the faked fullscreen, as it does for the real one.
 - Inside an iframe the script asks its parent frame to do the same with the
   iframe element, so embedded players work too.
+- The browser's own media controls do not go through the JavaScript API, their
+  fullscreen button calls the engine directly. Two layers handle that: the
+  button is hidden via `controlsList="nofullscreen"` and double click on a
+  video becomes the entry point instead. If something still reaches real
+  fullscreen, a `fullscreenchange` listener leaves it immediately and fakes
+  it. That path shows one visible flash, the OS window is already fullscreen
+  when the event fires.
 
 Everything is one content script in the page's main world, no build step,
 no background worker, no permissions beyond the content script itself.
@@ -37,15 +44,20 @@ no background worker, no permissions beyond the content script itself.
 
 ## Verify
 
-1. Open `test/index.html` in the browser with the extension loaded.
+1. Open `test/index.html` in the browser with the extension loaded. After
+   changing the extension: reload it in `chrome://extensions`, then the page.
 2. Click `requestFullscreen()`.
 3. Expected: the video fills the browser window, the OS window does not
    change, the status line reads `fullscreenElement=VIDEO` and `screen`
    equals `inner`.
 4. Press Escape. Expected: the page is back to normal and the status line
    reads `fullscreenElement=null`.
-
-Then try a real player such as a YouTube watch page and its fullscreen button.
+5. Native controls: the fullscreen icon in the video's control bar is gone.
+   Double click the video. Expected: same as step 3, no OS change, no flash.
+   A flash means the engine still toggled real fullscreen on double click and
+   the safety net took over.
+6. YouTube watch page: the player's fullscreen button and the `f` key. Both
+   go through the JavaScript API, no flash expected.
 
 Syntax checks without a browser:
 
@@ -56,6 +68,8 @@ node -e 'JSON.parse(require("fs").readFileSync("manifest.json","utf8"))'
 
 ## Known gaps
 
+- Anything that enters real fullscreen outside the JavaScript API is caught
+  only after the OS window changed, which shows as a short flash.
 - Sites that style their player with the `:fullscreen` pseudo class only get
   the generic pin-to-viewport styling, not their own fullscreen layout.
 - Sites that compare `window.outerHeight` with `screen.height` still see a

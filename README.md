@@ -4,8 +4,10 @@ Chromium extension that keeps video fullscreen inside the browser window.
 Click the fullscreen button on any player and the video fills the window,
 the OS window itself stays where it is and keeps its size.
 
-Status: proof of concept. Browser behaviour is unverified so far, only the
-syntax checks below and a Node stub test of the hook logic have run.
+Status: proof of concept. Checked by hand in Helium on 2026-11-09: the test
+page button, double click on the test video and double click on a YouTube
+watch page all keep fullscreen inside the window. Open: whether YouTube's
+own fullscreen button still works, see Known gaps.
 
 ## How it works
 
@@ -68,6 +70,9 @@ node -e 'JSON.parse(require("fs").readFileSync("manifest.json","utf8"))'
 
 ## Known gaps
 
+- On YouTube only double click was confirmed. The player's own fullscreen
+  button is unconfirmed, it may be blocked by the double click handler's
+  `stopPropagation` or by a YouTube side check.
 - Anything that enters real fullscreen outside the JavaScript API is caught
   only after the OS window changed, which shows as a short flash.
 - Sites that style their player with the `:fullscreen` pseudo class only get

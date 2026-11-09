@@ -4,7 +4,8 @@ Chromium extension that keeps video fullscreen inside the browser window.
 Click the fullscreen button on any player and the video fills the window,
 the OS window itself stays where it is and keeps its size.
 
-Status: proof of concept, tested against the bundled test page only.
+Status: proof of concept. Browser behaviour is unverified so far, only the
+syntax checks below and a Node stub test of the hook logic have run.
 
 ## How it works
 

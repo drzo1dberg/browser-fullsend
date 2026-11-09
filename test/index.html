@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>browser-fullsend test</title>
+<style>
+  body { font-family: sans-serif; margin: 2rem; }
+  video { width: 480px; background: #222; }
+  #state { font-family: monospace; }
+</style>
+</head>
+<body>
+<h1>browser-fullsend test</h1>
+<p>Expected with the extension loaded: the video fills the browser window, the OS window stays as it is, state below reads <code>fullscreenElement=VIDEO</code>. Escape or the button leaves it.</p>
+<video id="v" controls src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"></video>
+<p>
+  <button id="enter">requestFullscreen()</button>
+  <button id="exit">exitFullscreen()</button>
+</p>
+<p id="state"></p>
+<script>
+  const v = document.getElementById('v');
+  const state = document.getElementById('state');
+  function show() {
+    const el = document.fullscreenElement;
+    state.textContent = 'fullscreenElement=' + (el ? el.tagName : 'null')
+      + ' screen=' + screen.width + 'x' + screen.height
+      + ' inner=' + innerWidth + 'x' + innerHeight;
+  }
+  document.getElementById('enter').onclick = () => v.requestFullscreen();
+  document.getElementById('exit').onclick = () => document.exitFullscreen();
+  document.addEventListener('fullscreenchange', show);
+  show();
+</script>
+</body>
+</html>

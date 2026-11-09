@@ -1,0 +1,18 @@
+/* Element that asked for fullscreen: fill the viewport, stay above everything. */
+.__fullsend {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  z-index: 2147483647 !important;
+  background: #000 !important;
+}
+
+/* Page behind it: no scrollbars while the fake fullscreen is active. */
+.__fullsend-root,
+.__fullsend-root body {
+  overflow: hidden !important;
+}
